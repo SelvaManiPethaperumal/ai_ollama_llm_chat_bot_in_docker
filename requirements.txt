@@ -1,0 +1,11 @@
+Flask
+Werkzeug
+pypdf                                       
+langchain
+langchain-community
+langchain-core
+langchain-openai
+langchain-text-splitters
+faiss-cpu
+sentence-transformers
+fpdf

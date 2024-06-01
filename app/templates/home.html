@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="static/css/style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload</title>
+</head>
+<body>
+    <h2>Upload File</h2>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" name="file" id="file">
+        <button type="submit">Upload</button>
+    </form>
+    <div id="response"></div>
+    <div id="get_result" style="display: none;">
+        <p>Ask the multiple questions separated by comma (, )</p>
+        <textarea id="questions" rows="4" cols="50"></textarea>
+        <p id="error_text" id="error_text" style="color: red; display: none;">mandatory * </p>
+        <button type="submit"  id="get_result_class" style="display: none;">Get Result</button>
+    </div>
+
+    <!-- jQuery Library -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="static/js/upload.js"></script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+FROM python:3.8-slim
+
+# Set environment variables to avoid warnings
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+ENV OLLAMA_SERVER_URL="http://ollama_service:8000"
+
+# Set environment variables for port and host
+ENV OLLAMA_HOST=0.0.0.0
+ENV OLLAMA_PORT=5006
+
+# Install dependencies
+RUN apt-get update && apt-get install -y curl
+
+# Install ollama
+RUN curl -fsSL https://ollama.com/install.sh | sh
+
+# Expose the port ollama runs on
+EXPOSE $OLLAMA_PORT
+
+
+CMD ["ollama", "serve"]

@@ -1,0 +1,28 @@
+version: "3.5"
+
+services:
+  server:
+    container_name: AI_RFP
+    build: .
+    command: python run.py --verbose
+    hostname: AI
+    ports:
+      - "5001:5001"
+    volumes:
+      - ".:/usr/app:rw"
+    restart: always
+    environment:
+      ENV: DEVELOPMENT
+    networks:
+      - backend
+
+  ollama:
+    container_name: ollama_service
+    build:
+      context: .
+      dockerfile: Dockerfile.ollama
+    networks:
+      - backend
+
+networks:
+  backend:
