@@ -8,4 +8,7 @@ langchain-openai
 langchain-text-splitters
 faiss-cpu
 sentence-transformers
+ollama
 fpdf
+pysqlite3
+numpy

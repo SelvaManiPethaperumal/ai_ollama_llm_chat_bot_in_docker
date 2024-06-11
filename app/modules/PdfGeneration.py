@@ -19,7 +19,7 @@ class PdfGeneration:
     @staticmethod
     def chapter_title(pdf, chapter_title):
         pdf.set_font('Arial', 'B', 12)
-        pdf.cell(0, 10, chapter_title, 0, 1, 'L')
+        pdf.multi_cell(0, 10, chapter_title)
         pdf.ln(10)
 
     @staticmethod
@@ -35,7 +35,7 @@ class PdfGeneration:
 
         PdfGeneration.header(pdf)
         for item in data:
-            PdfGeneration.chapter_title(pdf, item['question'])
+            PdfGeneration.chapter_title(pdf, item['item'])
             PdfGeneration.chapter_body(pdf, item['answer'])
             # PdfGeneration.chapter_body(pdf, item['source_documents'])
             # PdfGeneration.chapter_body(pdf, item['metadata'])

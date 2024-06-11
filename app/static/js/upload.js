@@ -12,7 +12,8 @@ $(document).ready(function() {
             processData: false,
             contentType: false,
             success: function(response) {
-                $('#response').text(response);
+                $('#response').text(response.message);
+                $("#file_name").val(response.file_name)
                 $("#get_result_class").css('display', 'block');
                 $("#get_result").css('display', 'block');
             },
@@ -26,13 +27,14 @@ $(document).ready(function() {
     $("#get_result_class").click(function(e){
         $("#error_text").css('display', 'none');
         var question = $("#questions").val();
+        var file_name = $("#file_name").val();
         if(question.length != 0){
             $.ajax({
                 url: '/get_file',
                 contentType: 'application/json', // Set content type explicitly
                 dataType: 'json', // Specify data type expected from the server
                 type: 'POST',
-                data: JSON.stringify({ 'question': question }),
+                data: JSON.stringify({ 'question': question, "file_name" : file_name }),
                 success: function(response) {
                    
                 },

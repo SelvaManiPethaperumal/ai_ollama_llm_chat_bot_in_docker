@@ -15,7 +15,10 @@ WORKDIR /usr/app
 RUN virtualenv venv
 ENV PATH="/usr/src/app/venv/bin:$PATH"
 
-RUN apt-get -y update && apt-get -y upgrade
+RUN apt-get -y update && apt-get -y upgrade \
+build-essential \
+libsqlite3-dev \
+&& rm -rf /var/lib/apt/lists/*
 RUN apt-get update && apt-get install vim telnet -y && apt autoremove -y
 RUN pip install -r requirements.txt
 
@@ -24,6 +27,7 @@ COPY . .
 
 # Make the directory where files will be uploaded
 RUN mkdir -p usr/app/app/data
+RUN mkdir -p usr/app/app/company_documents
 
 
 EXPOSE 80
