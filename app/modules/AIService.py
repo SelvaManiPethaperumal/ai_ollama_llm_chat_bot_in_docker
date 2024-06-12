@@ -1,12 +1,16 @@
 from flask import Flask, request,jsonify, g
 from werkzeug.utils import secure_filename
 from app.modules.PdfGeneration import PdfGeneration
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
 import os
 import requests
 import sqlite3
 import numpy as np
+from config import Config
 
 app = Flask(__name__)
+app.config.from_object(Config)
 
 DOC_UPLOAD_FOLDER = app.config['DOC_UPLOAD_FOLDER']
 COMPANY_DOC_UPLOAD_FOLDER= app.config['COMPANY_DOC_UPLOAD_FOLDER']
@@ -24,7 +28,8 @@ class AIService:
                 return 'No file part'
 
             file = request.files['file']
-
+            isCompanyPo = request.form.get('is_company_po') 
+            print()
             # If user does not select file, browser also
             # submit an empty part without filename
             if file.filename == '':
@@ -32,11 +37,31 @@ class AIService:
             if file:
                 # Save the uploaded file
                 filename = secure_filename(file.filename)
-                file_path = os.path.join(app.config['COMPANY_DOC_UPLOAD_FOLDER'], filename)
+                file_path = os.path.join(COMPANY_DOC_UPLOAD_FOLDER, filename) if isCompanyPo == 'true' else os.path.join(DOC_UPLOAD_FOLDER, filename)
                 print(f"Saving file to: {file_path}")  # Debugging line
                 file.save(file_path)
+                if(isCompanyPo == 'true') :
+                    AIService.generateFaissForCompanyPO()
                 return jsonify({'status': "success", 'message' : "File Uploaded successfully", "file_name" : file_path}), 200
-                
+
+    @staticmethod
+    def generateFaissForCompanyPO():
+        documents = AIService.getPdfFile('') 
+        #split the data using RecursiveCharacterTextSplitter
+        text = AIService.splitData(documents)
+        #Embeddings the data using HuggingFaceEmbeddings
+        AIService.DataEmbeddings(text, '')
+        #Load LLM  
+        llm = AIService.loadOllamLLM()
+        # Load Company PO Faiss data
+        db = AIService.loadCompanyPOFaiss()
+       # Get prompt based on Company PO or Client PO
+        prompt = AIService.getPrompt(1)
+        data = AIService.AIAnalysisData(llm, db, prompt)
+        #PDF Creation 
+        PdfGeneration.generate_pdf(data , 1);
+        return jsonify({'number_of_documents': "success"}), 200
+
     """
     Function to Get Result based on given questions
     """
@@ -54,19 +79,47 @@ class AIService:
         # db = AIService.DataEmbeddingsWithSqlite3(text)
         #LLM
         llm = AIService.loadOllamLLM()
-        #Analysis the data using LLM
-        data = AIService.AIAnalysisData(llm, db, questions)
-
+        # Get prompt based on Company PO or Client PO
+        prompt = AIService.getPrompt(0)
+        data = AIService.AIAnalysisData(llm, db, prompt)
         #PDF Creation 
-        PdfGeneration.generate_pdf(data);
-        print(data)
+        PdfGeneration.generate_pdf(data , 0);
         return jsonify({'number_of_documents': "success"}), 200
     
     @staticmethod
+    def getPrompt(isCompanyPo):
+        if isCompanyPo == 1 :
+            return f""" let me know the summary data in document wise - give me just summary point by point  
+                        """
+        else:
+
+            legal_standards = """
+                Consider the following as our legal standards:
+                1. Invoice raised by Quess has to be paid within 30 days of invoice date.
+                2. If the client would like to terminate the contract for any reason, the client should provide a 30 days notice period to Quess.
+                """
+            
+            return f"""
+                        Quess is Our Company. Please verify if the following statements from the client's new PO align with our legal standards:
+                        
+                        {legal_standards}
+                        
+                        Statement: let me know the similar legal points and dissimiler legal points seperately - give me just summary point by point 
+                        
+                        For each statement, please provide:
+                        1. A determination of whether it is in conflict with our standards (CONFLICT or Inline with Quess policy).
+                        2. If there is a conflict, describe the conflict.
+                        3. Suggested actions to resolve the conflict, such as requesting the client to update the PO or getting an internal approval from the CFO.
+                        """
+
+    @staticmethod
      # Load PDF files from data directory that is present inside project folder
     def getPdfFile(fileName):
-        from langchain_community.document_loaders.pdf import PyPDFLoader
-        loader= PyPDFLoader(fileName)
+        from langchain_community.document_loaders.pdf import PyPDFLoader , PyPDFDirectoryLoader
+        if(fileName == '') :
+            loader= PyPDFDirectoryLoader(COMPANY_DOC_UPLOAD_FOLDER)
+        else :
+            loader= PyPDFLoader(fileName)
         return loader.load()
     
     @staticmethod
@@ -79,14 +132,15 @@ class AIService:
     @staticmethod
     def DataEmbeddings(texts, file_name):
         print(texts)
-        fileName = file_name.split('/')
+        if(file_name != ''):
+            fileName = file_name.split('/')
+        else:
+            fileName = ['','company_po']
         # Embeddings
-        from langchain_community.embeddings import HuggingFaceEmbeddings
-        DB_FAISS_PATH = f'vectorstore/{fileName[len(fileName) - 1]}_faiss/db_faiss'
         embeddings = HuggingFaceEmbeddings(model_name='sentence-transformers/all-MiniLM-L6-v2', model_kwargs={'device': 'cpu'})
             
         # Save Faiss vactor DB
-        from langchain_community.vectorstores import FAISS
+        DB_FAISS_PATH = f'vectorstore/{fileName[len(fileName) - 1]}_faiss/db_faiss'
         db = FAISS.from_documents(texts, embeddings)
         db.save_local(DB_FAISS_PATH)
         return db
@@ -97,43 +151,31 @@ class AIService:
         #local lama2 llm
         return Ollama(model="llama3", temperature=0.1, base_url="http://ollama_service:11434")
     
+    @staticmethod
+    def loadCompanyPOFaiss():
+        # Embeddings
+        embeddings = HuggingFaceEmbeddings(model_name='sentence-transformers/all-MiniLM-L6-v2', model_kwargs={'device': 'cpu'})
+        # Load FAISS databases
+        DB_FAISS_PATH = 'vectorstore/company_po_faiss/db_faiss'
+        return FAISS.load_local(DB_FAISS_PATH, embeddings, allow_dangerous_deserialization=True)
     
     @staticmethod
     def AIAnalysisData(llm, db, questions):
         from langchain.chains import ConversationalRetrievalChain
         chat_history =  []
         data =[]
-
-        legal_standards = """
-                Consider the following as our legal standards:
-                1. Invoice raised by Quess has to be paid within 30 days of invoice date.
-                2. If the client would like to terminate the contract for any reason, the client should provide a 30 days notice period to Quess.
-                """
-        for item in questions:
-            # prompt = f"Can you verify if the following statement is correct based on the document: {item}?"
-            prompt = f"""
-                        Quess is Our Company. Please verify if the following statements from the client's new PO align with our legal standards:
-                        
-                        {legal_standards}
-                        
-                        Statement: "{item}"
-                        
-                        For each statement, please provide:
-                        1. A determination of whether it is in conflict with our standards (CONFLICT or Inline with Quess policy).
-                        2. If there is a conflict, describe the conflict.
-                        3. Suggested actions to resolve the conflict, such as requesting the client to update the PO or getting an internal approval from the CFO.
-                        """
-          # Set up the Conversational Retrieval Chain
-            qa_chain = ConversationalRetrievalChain.from_llm(
-                        llm,
-                        db.as_retriever(search_kwargs={'k': 2}),
-                        return_source_documents=True)
-            result = qa_chain.invoke({'question': prompt, 'chat_history': chat_history, })
-            print("Question : "+ item)
-            print("Answets : "+ result['answer'])
-            result['item']= item;
-            chat_history.append((item, result['answer']))      
-            data.append(result)
+        prompt = questions
+        # Set up the Conversational Retrieval Chain
+        qa_chain = ConversationalRetrievalChain.from_llm(
+                    llm,
+                    db.as_retriever(search_kwargs={'k': 2}),
+                    return_source_documents=True)
+        result = qa_chain.invoke({'question': prompt, 'chat_history': chat_history, })
+        print("Question : "+ questions)
+        print("Answets : "+ result['answer'])
+        result['item']= questions;
+        chat_history.append((questions, result['answer']))      
+        data.append(result)
         return data
     
 

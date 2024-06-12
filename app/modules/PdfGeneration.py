@@ -29,7 +29,7 @@ class PdfGeneration:
         pdf.ln()
 
     @staticmethod
-    def generate_pdf(data):
+    def generate_pdf(data, isCompanyPo):
         pdf = FPDF()
         pdf.add_page()
 
@@ -49,7 +49,7 @@ class PdfGeneration:
         pdf_output.seek(0)
 
          # Specify the folder path to save the PDF
-        folder_path = '/usr/app/app/data'
+        folder_path = '/usr/app/app/company_documents' if isCompanyPo == 1  else '/usr/app/app/data'
         file_path = os.path.join(folder_path, 'output.pdf')
         
         # Save the PDF file

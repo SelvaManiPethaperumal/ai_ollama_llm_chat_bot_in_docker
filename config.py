@@ -17,5 +17,7 @@ class Config:
         },
 
     ],
-    DOC_UPLOAD_FOLDER = 'usr/app/app/data'
-    COMPANY_DOC_UPLOAD_FOLDER = 'usr/app/app/company_documents'
+    DOC_UPLOAD_FOLDER = '/usr/app/app/data'
+    COMPANY_DOC_UPLOAD_FOLDER = '/usr/app/app/company_documents'
+
+    
